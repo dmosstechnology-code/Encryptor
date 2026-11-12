@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content-width=device-width, initial-scale=1.0">
+    <title>✨ SweetSafe File Locker ✨</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <!-- Google Fonts: Fredoka for playful headers & Inter for clean text -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <!-- Canvas Confetti for success celebration -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .font-cute { font-family: 'Fredoka', cursive; }
+        .pastel-gradient { background: linear-gradient(135deg, #fbcfe8 0%, #fed7aa 50%, #fef08a 100%); }
+    </style>
+</head>
+<body class="pastel-gradient min-h-screen flex items-center justify-center p-4">
+
+    <div class="bg-white/90 backdrop-blur-md shadow-2xl rounded-3xl p-6 sm:p-8 w-full max-w-lg border border-pink-100">
+        
+        <!-- Header -->
+        <div class="text-center mb-6">
+            <span class="text-4xl inline-block mb-2 animate-bounce">🧸✨</span>
+            <h1 class="font-cute text-3xl font-bold text-slate-800 tracking-wide">SweetSafe Locker</h1>
+            <p class="text-slate-500 text-sm mt-1">Encrypt & decrypt your private files safely & offline!</p>
+        </div>
+
+        <!-- Mode Toggle Tabs -->
+        <div class="flex bg-pink-50 p-1 rounded-2xl mb-6 border border-pink-100">
+            <button id="encryptTab" onclick="setMode('encrypt')" class="flex-1 py-2.5 rounded-xl font-cute font-semibold text-pink-600 bg-white shadow-sm transition-all duration-200">
+                🔒 Encrypt File
+            </button>
+            <button id="decryptTab" onclick="setMode('decrypt')" class="flex-1 py-2.5 rounded-xl font-cute font-semibold text-slate-400 hover:text-slate-600 transition-all duration-200">
+                🔓 Decrypt File
+            </button>
+        </div>
+
+        <!-- Dropzone / File Picker -->
+        <div id="dropZone" class="border-2 border-dashed border-pink-200 hover:border-pink-400 rounded-2xl p-6 text-center cursor-pointer bg-pink-50/50 transition-all duration-200 mb-5 relative group">
+            <input type="file" id="fileInput" class="absolute inset-0 opacity-0 cursor-pointer" onchange="handleFileSelect(event)">
+            <div id="dropContent">
+                <span class="text-3xl mb-2 block group-hover:scale-110 transition-transform">🌸📁</span>
+                <p id="fileNameDisplay" class="font-medium text-slate-700 text-sm">Drag & drop your file here, or <span class="text-pink-600 underline">browse</span></p>
+                <p class="text-xs text-slate-400 mt-1">Any file type supported (Photos, Docs, Zips)</p>
+            </div>
+        </div>
+
+        <!-- Password Field -->
+        <div class="mb-6">
+            <label class="block font-cute text-sm text-slate-700 mb-1.5 flex justify-between items-center">
+                <span>Secret Password</span>
+                <button type="button" onclick="generatePassword()" class="text-xs text-pink-600 hover:text-pink-700 font-medium underline">✨ Generate Strong</button>
+            </label>
+            <div class="relative">
+                <input type="password" id="passwordInput" oninput="checkPasswordStrength()" placeholder="Enter your secret key..." 
+                    class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-pink-300 focus:bg-white transition-all">
+                <button type="button" onclick="togglePasswordVisibility()" class="absolute right-3 top-3.5 text-slate-400 hover:text-slate-600 text-sm">👁️</button>
+            </div>
+            <!-- Strength Meter -->
+            <div id="strengthContainer" class="mt-2 hidden">
+                <div class="flex justify-between text-xs text-slate-500 mb-1">
+                    <span>Password Vibe:</span>
+                    <span id="strengthText" class="font-semibold text-pink-600">Weak 🐣</span>
+                </div>
+                <div class="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                    <div id="strengthBar" class="bg-pink-400 h-full w-1/4 transition-all duration-300"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Button -->
+        <button id="actionBtn" onclick="processFile()" disabled class="w-full py-3.5 bg-pink-400 hover:bg-pink-500 disabled:bg-slate-200 disabled:cursor-not-allowed text-white font-cute font-bold rounded-xl shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center gap-2">
+            <span id="btnIcon">🔒</span> <span id="btnText">Encrypt My File</span>
+        </button>
+
+        <!-- Status / Progress Info -->
+        <div id="statusBox" class="mt-4 hidden text-center text-xs font-medium text-slate-500">
+            <p id="statusText">Processing your file safely offline...</p>
+        </div>
+
+        <!-- Footer Note -->
+        <div class="mt-6 text-center border-t border-slate-100 pt-4">
+            <p class="text-[11px] text-slate-400">🛡️ 100% Private: Processed entirely on your device using Web Crypto API.</p>
+        </div>
+
+    </div>
+
+    <script>
+        let currentMode = 'encrypt';
+        let selectedFile = null;
+
+        function setMode(mode) {
+            currentMode = mode;
+            const encTab = document.getElementById('encryptTab');
+            const decTab = document.getElementById('decryptTab');
+            const btnText = document.getElementById('btnText');
+            const btnIcon = document.getElementById('btnIcon');
+
+            if (mode === 'encrypt') {
+                encTab.className = "flex-1 py-2.5 rounded-xl font-cute font-semibold text-pink-600 bg-white shadow-sm transition-all duration-200";
+                decTab.className = "flex-1 py-2.5 rounded-xl font-cute font-semibold text-slate-400 hover:text-slate-600 transition-all duration-200";
+                btnText.innerText = "Encrypt My File";
+                btnIcon.innerText = "🔒";
+            } else {
+                decTab.className = "flex-1 py-2.5 rounded-xl font-cute font-semibold text-purple-600 bg-white shadow-sm transition-all duration-200";
+                encTab.className = "flex-1 py-2.5 rounded-xl font-cute font-semibold text-slate-400 hover:text-slate-600 transition-all duration-200";
+                btnText.innerText = "Decrypt My File";
+                btnIcon.innerText = "🔓";
+            }
+            validateForm();
+        }
+
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file) {
+                selectedFile = file;
+                const display = document.getElementById('fileNameDisplay');
+                const sizeMb = (file.size / (1024 * 1024)).toFixed(2);
+                display.innerHTML = `📄 <strong class="text-slate-800">${file.name}</strong> <span class="text-xs text-slate-400">(${sizeMb} MB)</span>`;
+                validateForm();
+            }
+        }
+
+        function togglePasswordVisibility() {
+            const input = document.getElementById('passwordInput');
+            input.type = input.type === 'password' ? 'text' : 'password';
+        }
+
+        function generatePassword() {
+            const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()";
+            let pwd = "";
+            for (let i = 0; i < 16; i++) {
+                pwd += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            const input = document.getElementById('passwordInput');
+            input.value = pwd;
+            input.type = 'text';
+            checkPasswordStrength();
+            validateForm();
+        }
+
+        function checkPasswordStrength() {
+            const val = document.getElementById('passwordInput').value;
+            const container = document.getElementById('strengthContainer');
+            const text = document.getElementById('strengthText');
+            const bar = document.getElementById('strengthBar');
+
+            if (val.length === 0) {
+                container.classList.add('hidden');
+                validateForm();
+                return;
+            }
+            container.classList.remove('hidden');
+
+            let score = 0;
+            if (val.length > 6) score++;
+            if (val.length > 10) score++;
+            if (/[A-Z]/.test(val) && /[0-9]/.test(val)) score++;
+            if (/[^A-Za-z0-9]/.test(val)) score++;
+
+            if (score <= 1) {
+                text.innerText = "Weak 🐣";
+                bar.className = "bg-rose-400 h-full w-1/4 transition-all duration-300";
+            } else if (score === 2 || score === 3) {
+                text.innerText = "Good ✨";
+                bar.className = "bg-amber-400 h-full w-2/4 transition-all duration-300";
+            } else {
+                text.innerText = "Unbreakable 🐉";
+                bar.className = "bg-emerald-400 h-full w-full transition-all duration-300";
+            }
+            validateForm();
+        }
+
+        function validateForm() {
+            const btn = document.getElementById('actionBtn');
+            const pwd = document.getElementById('passwordInput').value;
+            if (selectedFile && pwd.length > 0) {
+                btn.removeAttribute('disabled');
+            } else {
+                btn.setAttribute('disabled', 'true');
+            }
+        }
+
+        // Cryptographic Helper Functions using Native Web Crypto API
+        async function deriveKey(password, salt) {
+            const enc = new TextEncoder();
+            const keyMaterial = await window.crypto.subtle.importKey(
+                "raw", enc.encode(password), { name: "PBKDF2" }, false, ["deriveKey"]
+            );
+            return window.crypto.subtle.deriveKey(
+                { name: "PBKDF2", salt: salt, iterations: 150000, hash: "SHA-256" },
+                keyMaterial,
+                { name: "AES-GCM", length: 256 },
+                false,
+                ["encrypt", "decrypt"]
+            );
+        }
+
+        async function processFile() {
+            const password = document.getElementById('passwordInput').value;
+            const statusBox = document.getElementById('statusBox');
+            const statusText = document.getElementById('statusText');
+            statusBox.classList.remove('hidden');
+
+            try {
+                const fileBuffer = await selectedFile.arrayBuffer();
+
+                if (currentMode === 'encrypt') {
+                    statusText.innerText = "🔒 Encrypting your file securely...";
+                    const salt = window.crypto.getRandomValues(new Uint8Array(16));
+                    const iv = window.crypto.getRandomValues(new Uint8Array(12));
+                    const key = await deriveKey(password, salt);
+
+                    const encryptedContent = await window.crypto.subtle.encrypt(
+                        { name: "AES-GCM", iv: iv },
+                        key,
+                        fileBuffer
+                    );
+
+                    // Combine Salt (16) + IV (12) + Encrypted Data
+                    const combined = new Uint8Array(salt.byteLength + iv.byteLength + encryptedContent.byteLength);
+                    combined.set(salt, 0);
+                    combined.set(iv, salt.byteLength);
+                    combined.set(new Uint8Array(encryptedContent), salt.byteLength + iv.byteLength);
+
+                    // Download File
+                    downloadBlob(new Blob([combined]), selectedFile.name + ".enc");
+                    statusText.innerText = "✨ Encrypted successfully!";
+                    confetti({ particleCount: 80, spread: 60, origin: { y: 0.6 } });
+
+                } else {
+                    statusText.innerText = "🔓 Decrypting your file...";
+                    const data = new Uint8Array(fileBuffer);
+                    
+                    const salt = data.slice(0, 16);
+                    const iv = data.slice(16, 28);
+                    const ciphertext = data.slice(28);
+
+                    const key = await deriveKey(password, salt);
+
+                    const decryptedContent = await window.crypto.subtle.decrypt(
+                        { name: "AES-GCM", iv: iv },
+                        key,
+                        ciphertext
+                    );
+
+                    // Restore original file name (remove .enc if present)
+                    let originalName = selectedFile.name.endsWith('.enc') ? selectedFile.name.slice(0, -4) : "decrypted_" + selectedFile.name;
+                    
+                    downloadBlob(new Blob([decryptedContent]), originalName);
+                    statusText.innerText = "✨ Decrypted successfully!";
+                    confetti({ particleCount: 80, spread: 60, origin: { y: 0.6 } });
+                }
+
+            } catch (err) {
+                console.error(err);
+                statusText.innerText = "❌ Error: Incorrect password or corrupted file.";
+            }
+        }
+
+        function downloadBlob(blob, filename) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>
